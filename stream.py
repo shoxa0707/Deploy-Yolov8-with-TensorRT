@@ -1,10 +1,11 @@
-import streamlit as st
 import cv2
 import numpy as np
-import subprocess
+import time
 from TensorRT.models.utils import blob, det_postprocess, letterbox
 from TensorRT.models.cudart_api import TRTEngine
+import streamlit as st
 import tempfile
+import subprocess
 
 classes = ['face']
 
@@ -16,22 +17,16 @@ st.header(":green[Upload your video]")
 
 video_data = st.file_uploader("upload", ['mp4','mov', 'avi'])
 
-temp_file_result = "result.mp4"
-converted = "convert.mp4"
+write = st.checkbox('Write to video', value=True)
+real = st.checkbox('Show real time')
 
-with open('last.txt') as f:
-    last_name, last_size = f.read().split('\n')
-
-if video_data:
-    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-        temp_filename = temp_file.name
-        temp_file.write(video_data.read())
+if st.button("Let's started") and (write or real):
+    if video_data:
+        print(video_data)
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_filename = temp_file.name
+            temp_file.write(video_data.read())
         
-    if video_data.name != last_name and video_data.size != last_size:
-        last_name = video_data.name
-        last_size = video_data.size
-        with open('last.txt', 'w') as f:
-            f.write(str(last_name)+'\n'+str(last_size))
         my_bar = st.progress(0, text="Detection in progress. Please wait...")
 
         # read it with cv2.VideoCapture(),
@@ -39,18 +34,29 @@ if video_data:
         cap = cv2.VideoCapture(temp_filename)
 
         nums = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-
-        frame_width = int(cap.get(3))
-        frame_height = int(cap.get(4))
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        out = cv2.VideoWriter(temp_file_result, fourcc, fps, (frame_width, frame_height))
+        if write:
+            frame_width = int(cap.get(3))
+            frame_height = int(cap.get(4))
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            out = cv2.VideoWriter('result.mp4', fourcc, fps, (frame_width, frame_height))
+        if real:
+            end = cv2.imread('images/end.png')
+            imagepl = st.empty()
 
         if cap.isOpened()== False:
             st.write("Error opening video stream or file. Upload another video or another video extension(Support [mp4, mov, avi]).")
 
         num = 0
-        while cap.isOpened():
+        cap = cv2.VideoCapture(temp_filename)
+
+        if (cap.isOpened()== False):
+            print("Error opening video stream or file")
+
+        with open('coco.names') as f:
+            classes = f.read().split('\n')
+
+        while(cap.isOpened()):
             ret, frame = cap.read()
             my_bar.progress(num / nums, text="Detection in progress. Please wait...")
             num += 1
@@ -80,42 +86,34 @@ if video_data:
         out.release()
         cap.release()
         cv2.destroyAllWindows()
+        if write:
+            out.release()
+            subprocess.call(args=f"ffmpeg -y -i result.mp4 -c:v libx264 convert.mp4", shell=True)
 
-        subprocess.call(args=f"ffmpeg -y -i {temp_file_result} -c:v libx264 {converted}", shell=True)
+            video_file = open('convert.mp4', 'rb')
+            video_bytes = video_file.read()
 
-        video_file = open('convert.mp4', 'rb')
-        video_bytes = video_file.read()
+            st.video(video_bytes)
 
-        st.video(video_bytes)
-
-        # Download button
-        with open("result.mp4", "rb") as file:
-            btn = st.download_button(
-                    label="Download video",
-                    data=file,
-                    file_name="result.mp4",
-                    mime="video/mp4"
-                )
+            # Download button
+            with open("result.mp4", "rb") as file:
+                btn = st.download_button(
+                        label="Download video",
+                        data=file,
+                        file_name="result.mp4",
+                        mime="video/mp4"
+                    )
     else:
-        video_file = open('convert.mp4', 'rb')
-        video_bytes = video_file.read()
-
-        st.video(video_bytes)
-
-        # Download button
-        with open("result.mp4", "rb") as file:
-            btn = st.download_button(
-                    label="Download video",
-                    data=file,
-                    file_name="result.mp4",
-                    mime="video/mp4"
-                )
-else:
-    with open('last.txt', 'w') as f:
-        f.write('0'+'\n'+'0')
-
-try:
-    os.remove('result.mp4')
-    os.remove('convert.mp4')
-except:
-    pass
+        if write:
+            # Download button
+            with open("result.mp4", "rb") as file:
+                btn = st.download_button(
+                        label="Download video",
+                        data=file,
+                        file_name="result.mp4",
+                        mime="video/mp4"
+                    )
+        if real:
+            end = cv2.imread('images/end.png')
+            st.image(end)
+    
