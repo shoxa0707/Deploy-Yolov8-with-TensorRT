@@ -41,7 +41,7 @@ Then we have an onx model. Through it we can go to TensorRT. This is done as fol
 If you want, you can use the TensorRT model with python code. You can do this as follows:
 
 ```console
-  Usage: python deploy.py -t tensorflow -m models/seatbelt.model -i some.png -d cpu [options]...
+  Usage: python deploy.py -m fp16.engine -v video.mp4 -c classes.txt [options]...
 
   A common command: python inference.py -i some.png
 
@@ -77,8 +77,8 @@ The result is as follows:
   1. Clone repo
 
      ```bash
-     git clone https://github.com/shoxa0707/SeatBelt-Classification.git
-     cd SeatBelt-Classification
+     git clone https://github.com/shoxa0707/Deploy-Yolov8-with-TensorRT.git
+     cd Deploy-Yolov8-with-TensorRT
      ```
 
   1. Install dependent packages
